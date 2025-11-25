@@ -3,11 +3,11 @@ pipeline {
 
     environment {
         IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
-        BUILD_TAG = "${env.BUILD_NUMBER}"
+        BUILD_TAG = "latest"
         GIT_URL = "https://github.com/Aishwaryavaithiyanathan/flaskapp.git"
         GIT_BRANCH = "main"
         EC2_HOST = "98.92.82.8" // Replace with your EC2 IP
-        EC2_USER = "ec2-user"           // Adjust if needed
+        EC2_USER = "ec2-user"   // Adjust if needed
     }
 
     stages {
@@ -49,13 +49,20 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 script {
-                    // SSH to EC2 and deploy the Docker container
                     withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'PEM_FILE', usernameVariable: 'SSH_USER')]) {
+
+                        // Fix Windows SSH key permissions
+                        bat """
+                        icacls "%PEM_FILE%" /inheritance:r
+                        icacls "%PEM_FILE%" /grant:r "%USERNAME%:R"
+                        """
+
+                        // SSH and deploy container
                         bat """
                         ssh -i %PEM_FILE% -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} ^
                         "docker pull ${IMAGE_NAME}:${BUILD_TAG} ^
-                         && docker stop flaskapp || exit 0 ^
-                         && docker rm flaskapp || exit 0 ^
+                         && docker stop flaskapp || true ^
+                         && docker rm flaskapp || true ^
                          && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:${BUILD_TAG}"
                         """
                     }
