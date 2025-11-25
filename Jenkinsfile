@@ -24,28 +24,28 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:latest ."
+                bat "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
 
         stage('Login to DockerHub') {
             steps {
                 withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh "docker login -u $USERNAME -p $PASSWORD"
+                    bat "docker login -u $USERNAME -p $PASSWORD"
                 }
             }
         }
 
         stage('Push Image to DockerHub') {
             steps {
-                sh "docker push ${IMAGE_NAME}:latest"
+                bat "docker push ${IMAGE_NAME}:latest"
             }
         }
 
         stage('Deploy to EC2') {
             steps {
                 sshagent([EC2_SSH_KEY]) {
-                    sh """
+                    bat """
                     ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} '
                         docker stop flask-container || true
                         docker rm flask-container || true
