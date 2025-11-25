@@ -3,35 +3,37 @@ pipeline {
 
     environment {
         IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
-        IMAGE_TAG = "latest"
-        DOCKERHUB_CREDENTIALS = "dockerhub_creds" // Make sure this matches your Jenkins credentials ID
-        EC2_USER = "ec2-user"   // Replace with your EC2 username
-        EC2_HOST = "98.92.82.8"  // Replace with your EC2 public IP
-        SSH_KEY = "ec2_ssh_key"  // Jenkins credential ID for your private SSH key
+        BUILD_TAG = "${env.BUILD_NUMBER}"
+        GIT_URL = "https://github.com/Aishwaryavaithiyanathan/flaskapp.git"
+        GIT_BRANCH = "main"
+        EC2_HOST = "YOUR_EC2_PUBLIC_IP" // Replace with your EC2 IP
+        EC2_USER = "ec2-user"           // Adjust if needed
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
-                git branch: 'main', url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp'
+                // Explicit Git checkout with GitHub credentials
+                git branch: "${GIT_BRANCH}", url: "${GIT_URL}", credentialsId: 'github-token'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                    // Build Docker image
+                    bat "docker build -t ${IMAGE_NAME}:${BUILD_TAG} ."
                 }
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}",
-                                                  usernameVariable: 'DOCKER_USER',
-                                                  passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
+                script {
+                    // Login using DockerHub credentials
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
+                    }
                 }
             }
         }
@@ -39,24 +41,24 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    docker.push("${IMAGE_NAME}:${IMAGE_TAG}")
+                    bat "docker push ${IMAGE_NAME}:${BUILD_TAG}"
                 }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: "${SSH_KEY}", 
-                                                  keyFileVariable: 'SSH_KEY_PATH', 
-                                                  usernameVariable: 'SSH_USER')]) {
-                    sh """
-                    ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST '
-                        docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
-                        docker stop flaskapp || true &&
-                        docker rm flaskapp || true &&
-                        docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
-                    '
-                    """
+                script {
+                    // SSH to EC2 and deploy the Docker container
+                    withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'PEM_FILE', usernameVariable: 'SSH_USER')]) {
+                        bat """
+                        ssh -i %PEM_FILE% -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} ^
+                        "docker pull ${IMAGE_NAME}:${BUILD_TAG} ^
+                         && docker stop flaskapp || exit 0 ^
+                         && docker rm flaskapp || exit 0 ^
+                         && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:${BUILD_TAG}"
+                        """
+                    }
                 }
             }
         }
