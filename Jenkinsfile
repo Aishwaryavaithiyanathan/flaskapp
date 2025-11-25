@@ -14,6 +14,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/aishwaryavaithiyanathan/flask-app.git'
+                credentialsId: 'github-token'
             }
         }
 
