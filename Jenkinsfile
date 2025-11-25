@@ -46,7 +46,7 @@ stage('Deploy to EC2') {
     echo Running deployment on EC2
     ssh -i C:\\Users\\Administrator\\Downloads\\ec2-key.pem -o StrictHostKeyChecking=no ec2-user@<EC2-PUBLIC-IP> "docker pull aishwaryavaithiyanathan/flaskapp:latest && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 aishwaryavaithiyanathan/flaskapp:latest"
     """
-}
+
 
         
             }
