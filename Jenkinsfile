@@ -2,49 +2,59 @@ pipeline {
     agent any
 
     environment {
-        EC2_KEY = 'ec2-ssh-key' // EC2 private key (stored in Jenkins credentials)
-        EC2_USER = "ec2-user"
-        EC2_HOST = "98.92.82.8" // replace with your EC2 IP
-        IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp:latest"
+        IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
+        IMAGE_TAG = "latest"
+        DOCKERHUB_CREDENTIALS = "dockerhub_creds" // Make sure this matches your Jenkins credentials ID
+        EC2_USER = "ec2-user"   // Replace with your EC2 username
+        EC2_HOST = "98.92.82.8"  // Replace with your EC2 public IP
+        SSH_KEY = "ec2_ssh_key"  // Jenkins credential ID for your private SSH key
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
-                git(
-                    url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp',
-                    branch: 'main',
-                    credentialsId: 'github-token'
-                )
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t ${IMAGE_NAME} ."
+                script {
+                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                }
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub_creds', usernameVariable: 'DOCKERHUB_USR', passwordVariable: 'DOCKERHUB_PSW')]) {
-                    bat 'echo %DOCKERHUB_PSW% | docker login -u %DOCKERHUB_USR% --password-stdin'
+                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}",
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'docker login -u $DOCKER_USER -p $DOCKER_PASS'
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                bat "docker push ${IMAGE_NAME}"
+                script {
+                    docker.push("${IMAGE_NAME}:${IMAGE_TAG}")
+                }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'EC2_KEY_FILE')]) {
-                    bat """
-                    ssh -i %EC2_KEY_FILE% -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} ^
-                    "docker pull ${IMAGE_NAME} && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}"
+                withCredentials([sshUserPrivateKey(credentialsId: "${SSH_KEY}", 
+                                                  keyFileVariable: 'SSH_KEY_PATH', 
+                                                  usernameVariable: 'SSH_USER')]) {
+                    sh """
+                    ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST '
+                        docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
+                        docker stop flaskapp || true &&
+                        docker rm flaskapp || true &&
+                        docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
+                    '
                     """
                 }
             }
@@ -52,11 +62,8 @@ pipeline {
     }
 
     post {
-        always {
-            echo "Pipeline finished."
-        }
         success {
-            echo "Deployment successful!"
+            echo "Pipeline completed successfully!"
         }
         failure {
             echo "Pipeline failed!"
