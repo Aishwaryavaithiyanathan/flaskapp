@@ -1,8 +1,8 @@
-pipeline {
+ipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = 'docker-hub-creds'    // Jenkins credential ID for DockerHub
+        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'    // Jenkins credential ID for DockerHub
         EC2_SSH_KEY = 'Jenkinskp'               // SSH key credential ID
         EC2_USER = "ec2-user"
         EC2_IP = "98.92.82.8"                 // replace with EC2 IP
