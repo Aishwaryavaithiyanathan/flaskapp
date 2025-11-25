@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDENTIALS = 'dockerhub-creds'    // DockerHub creds in Jenkins
-        IMAGE_NAME = 'yourdockerhubusername/flask-app'
+        IMAGE_NAME = 'aishwaryavaithiyanathan/flask-app'
         EC2_USER = 'ec2-user'
         EC2_HOST = 'YOUR_EC2_PUBLIC_IP'
         SSH_KEY = 'ec2-private-key'
