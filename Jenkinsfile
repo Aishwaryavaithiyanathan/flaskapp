@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'        
-        EC2_SSH_KEY = 'ec2-ssh-key'                
-        EC2_IP = "98.92.82.8"                      
-        IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
-        GIT_CREDENTIALS = 'github-token'           // GitHub credential ID
+        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'  // DockerHub username/password credential ID in Jenkins
+        EC2_CREDENTIAL_ID = 'ec2-ssh-key'           // Jenkins SSH credential ID for EC2
+        EC2_USER = 'ec2-user'
+        EC2_IP = '98.92.82.8'                       // Replace with your EC2 public IP
+        IMAGE_NAME = 'aishwaryavaithiyanathan/flaskapp'
     }
 
     stages {
@@ -14,9 +14,9 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git(
-                    url: 'https://github.com/aishwaryavaithiyanathan/flaskapp',
+                    url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp',
                     branch: 'main',
-                    credentialsId: "${GIT_CREDENTIALS}"
+                    credentialsId: 'github-token'     // GitHub personal access token credential ID in Jenkins
                 )
             }
         }
@@ -35,7 +35,7 @@ pipeline {
             }
         }
 
-        stage('Push Image to DockerHub') {
+        stage('Push Docker Image') {
             steps {
                 bat "docker push ${IMAGE_NAME}:latest"
             }
@@ -43,6 +43,23 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sshagent([EC2_CREDENTIAL_ID]) {
                     bat """
-                      echo Deploying container to EC2...
+                    ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} ^
+                    "docker pull ${IMAGE_NAME}:latest && ^
+                    docker stop flaskapp || true && ^
+                    docker rm flaskapp || true && ^
+                    docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:latest"
+                    """
+                }
+            }
+        }
+
+    }
+
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+    }
+}
