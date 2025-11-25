@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'     // Jenkins credentials for DockerHub
-        EC2_SSH_KEY = 'Jenkinskp'                     // SSH key credential ID
-        EC2_USER = "ec2-user"
-        EC2_IP = "98.92.82.8"                         // replace with EC2 IP
+        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'        
+        EC2_SSH_KEY = 'ec2-ssh-key'                
+        EC2_IP = "98.92.82.8"                      
         IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
+        GIT_CREDENTIALS = 'github-token'           // GitHub credential ID
     }
 
     stages {
@@ -16,7 +16,7 @@ pipeline {
                 git(
                     url: 'https://github.com/aishwaryavaithiyanathan/flaskapp',
                     branch: 'main',
-                    credentialsId: 'github-token'
+                    credentialsId: "${GIT_CREDENTIALS}"
                 )
             }
         }
@@ -43,20 +43,6 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                bat """
-                echo Running deployment on EC2
-                ssh -i C:\\Users\\Administrator\\Downloads\\ec2-key.pem -o StrictHostKeyChecking=no ec2-user@${EC2_IP} "docker pull ${IMAGE_NAME}:latest && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:latest"
-                """
-            }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline executed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
-    }
-}
+                withCredentials([sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    bat """
+                      echo Deploying container to EC2...
