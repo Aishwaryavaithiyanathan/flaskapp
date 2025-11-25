@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flaskapp-deployment
+  labels:
+    app: flaskapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flaskapp
+  template:
+    metadata:
+      labels:
+        app: flaskapp
+    spec:
+      containers:
+        - name: flaskapp
+          image: aishwaryavaithiyanathan/flaskapp:latest
+          ports:
+            - containerPort: 5000
+          imagePullPolicy: Always
