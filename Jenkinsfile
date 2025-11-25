@@ -41,13 +41,9 @@ pipeline {
             steps {
                 script {
                     bat """
-                    ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} '
-                        docker pull ${IMAGE_NAME}
-                        docker stop flaskapp || true
-                        docker rm flaskapp || true
-                        docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}
-                    '
-                    """
+ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} "docker pull ${IMAGE_NAME} && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}"
+"""
+
                 }
             }
         }
