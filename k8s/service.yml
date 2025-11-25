@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flaskapp-service
+spec:
+  selector:
+    app: flaskapp
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 30007   # Access via localhost:30007 on Minikube
