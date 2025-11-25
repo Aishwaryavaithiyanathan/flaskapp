@@ -2,64 +2,64 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'  // DockerHub username/password credential ID in Jenkins
-        EC2_CREDENTIAL_ID = 'ec2-ssh-key'           // Jenkins SSH credential ID for EC2
-        EC2_USER = 'ec2-user'
-        EC2_IP = '98.92.82.8'                       // Replace with your EC2 public IP
-        IMAGE_NAME = 'aishwaryavaithiyanathan/flaskapp'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials') // Docker Hub username/password
+        EC2_KEY = credentials('ec2-user') // EC2 private key
+        EC2_USER = "ec2-user"
+        EC2_HOST = "<EC2_PUBLIC_IP>" // replace with your EC2 IP
+        IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp:latest"
     }
 
     stages {
-
-        stage('Checkout Code') {
+        stage('Checkout SCM') {
             steps {
                 git(
                     url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp',
                     branch: 'main',
-                    credentialsId: 'github-token'     // GitHub personal access token credential ID in Jenkins
+                    credentialsId: 'github-token'
                 )
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t ${IMAGE_NAME}:latest ."
+                bat "docker build -t ${IMAGE_NAME} ."
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    bat "docker login -u %USERNAME% -p %PASSWORD%"
-                }
+                bat """
+                echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                """
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                bat "docker push ${IMAGE_NAME}:latest"
+                bat "docker push ${IMAGE_NAME}"
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent([EC2_CREDENTIAL_ID]) {
-                    bat """
-                    ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} ^
-                    "docker pull ${IMAGE_NAME}:latest && ^
-                    docker stop flaskapp || true && ^
-                    docker rm flaskapp || true && ^
-                    docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}:latest"
-                    """
-                }
+                // Use direct SSH instead of ssh-agent
+                bat """
+                ssh -i ${EC2_KEY} -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} ^
+                "docker pull ${IMAGE_NAME} && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}"
+                """
             }
         }
-
     }
 
     post {
         always {
-            echo 'Pipeline finished.'
+            echo "Pipeline finished."
+        }
+        success {
+            echo "Deployment successful!"
+        }
+        failure {
+            echo "Pipeline failed!"
         }
     }
 }
