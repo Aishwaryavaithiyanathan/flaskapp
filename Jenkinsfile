@@ -6,7 +6,7 @@ pipeline {
         BUILD_TAG = "${env.BUILD_NUMBER}"
         GIT_URL = "https://github.com/Aishwaryavaithiyanathan/flaskapp.git"
         GIT_BRANCH = "main"
-        EC2_HOST = "YOUR_EC2_PUBLIC_IP" // Replace with your EC2 IP
+        EC2_HOST = "98.92.82.8" // Replace with your EC2 IP
         EC2_USER = "ec2-user"           // Adjust if needed
     }
 
