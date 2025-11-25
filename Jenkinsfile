@@ -2,56 +2,71 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "yourdockerhubusername/flask-devops"
-        EC2_USER = "ec2-user"
-        EC2_HOST = "<EC2_PUBLIC_IP>"
+        DOCKERHUB_CREDENTIALS = 'dockerhub-creds'    // DockerHub creds in Jenkins
+        IMAGE_NAME = 'yourdockerhubusername/flask-app'
+        EC2_USER = 'ec2-user'
+        EC2_HOST = 'YOUR_EC2_PUBLIC_IP'
+        SSH_KEY = 'ec2-private-key'
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/<your-user>/<your-repo>.git'
+                git branch: 'main', url: 'https://github.com/yourrepo/flask-demo.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:latest ."
-            }
-        }
-
-        stage('Login to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', passwordVariable: 'DOCKERHUB_PASS', usernameVariable: 'DOCKERHUB_USER')]) {
-                    sh "echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin"
+                script {
+                    sh "docker build -t ${IMAGE_NAME}:latest ."
                 }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Login to DockerHub') {
             steps {
-                sh "docker push ${IMAGE_NAME}:latest"
+                script {
+                    withCredentials([usernamePassword(credentialsId: DOCKERHUB_CREDENTIALS, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+                    }
+                }
+            }
+        }
+
+        stage('Push Image to DockerHub') {
+            steps {
+                script {
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent (credentials: ['ec2-ssh']) {
-                    sh """
+                script {
+                    sshagent([SSH_KEY]) {
+                        sh """
                         ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                        docker pull ${IMAGE_NAME}:latest &&
-                        docker stop flask-app || true &&
-                        docker rm flask-app || true &&
-                        docker run -d --name flask-app -p 5000:5000 ${IMAGE_NAME}:latest
+                            sudo docker pull ${IMAGE_NAME}:latest;
+                            sudo docker rm -f flaskapp || true;
+                            sudo docker run -d --name flaskapp -p 80:5000 ${IMAGE_NAME}:latest
                         '
-                    """
+                        """
+                    }
                 }
             }
         }
+
     }
 
     post {
-        success { echo "🚀 Container deployment successful!" }
-        failure { echo "❌ Deployment failed!" }
+        success {
+            echo "Deployment Completed Successfully!"
+        }
+        failure {
+            echo "Deployment Failed!"
+        }
     }
 }
