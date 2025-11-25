@@ -41,19 +41,14 @@ pipeline {
                 bat "docker push ${IMAGE_NAME}:latest"
             }
         }
+stage('Deploy to EC2') {
+    bat """
+    echo Running deployment on EC2
+    ssh -i C:\\Users\\Administrator\\Downloads\\ec2-key.pem -o StrictHostKeyChecking=no ec2-user@<EC2-PUBLIC-IP> "docker pull aishwaryavaithiyanathan/flaskapp:latest && docker stop flaskapp || true && docker rm flaskapp || true && docker run -d --name flaskapp -p 5000:5000 aishwaryavaithiyanathan/flaskapp:latest"
+    """
+}
 
-        stage('Deploy to EC2') {
-            steps {
-                sshagent([EC2_SSH_KEY]) {
-                    bat """
-                    ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} '
-                        docker stop flask-container || true
-                        docker rm flask-container || true
-                        docker pull ${IMAGE_NAME}:latest
-                        docker run -d -p 5000:5000 --name flask-container ${IMAGE_NAME}:latest
-                    '
-                    """
-                }
+        
             }
         }
     }
