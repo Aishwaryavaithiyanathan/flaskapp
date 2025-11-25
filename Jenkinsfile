@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub_creds') // Docker Hub username/password
+        DOCKERHUB_CREDENTIALS = 'dockerhub_creds' // Docker Hub username/password
         EC2_KEY = 'ec2-user' // EC2 private key
         EC2_USER = "ec2-user"
         EC2_HOST = "98.92.82.8" // replace with your EC2 IP
