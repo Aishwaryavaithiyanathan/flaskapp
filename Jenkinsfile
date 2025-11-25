@@ -2,55 +2,52 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "aishwaryavaithiyanathan/flaskapp"
-        IMAGE_TAG  = "latest"
-        GIT_URL    = "https://github.com/Aishwaryavaithiyanathan/flaskapp.git"
-        GIT_BRANCH = "main"
+        DOCKER_HUB_CRED = credentials('dockerhub-creds') // Jenkins credential ID
+        EC2_USER = 'ec2-user'                           // EC2 username
+        EC2_HOST = 'ec2-public-ip'                      // EC2 public IP
+        SSH_KEY = credentials('ec2-ssh-key')            // SSH private key stored in Jenkins
+        IMAGE_NAME = 'aishwaryavaithiyanathan/flaskapp:latest'
     }
 
     stages {
-        stage('Checkout SCM') {
+
+        stage('Checkout') {
             steps {
-                git branch: "${GIT_BRANCH}", url: "${GIT_URL}", credentialsId: 'github-token'
+                git url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp.git', branch: 'main'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    bat "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                }
+                sh "docker build -t ${IMAGE_NAME} ."
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
-                    }
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    bat "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
-                }
+                sh "docker push ${IMAGE_NAME}"
             }
         }
 
-        stage('Deploy to Minikube') {
+        stage('Deploy to EC2') {
             steps {
                 script {
-                    // Ensure Minikube docker-env is used
-                    bat "minikube docker-env --shell=cmd > minikube-env.cmd"
-                    bat "call minikube-env.cmd"
-
-                    // Apply Kubernetes manifests
-                    bat "kubectl apply -f k8s/deployment.yml"
-                    bat "kubectl apply -f k8s/service.yml"
+                    sh """
+                    ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_HOST} '
+                        docker pull ${IMAGE_NAME}
+                        docker stop flaskapp || true
+                        docker rm flaskapp || true
+                        docker run -d --name flaskapp -p 5000:5000 ${IMAGE_NAME}
+                    '
+                    """
                 }
             }
         }
@@ -58,10 +55,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline completed successfully!"
+            echo 'Deployment to EC2 successful!'
         }
         failure {
-            echo "Pipeline failed!"
+            echo 'Deployment failed.'
         }
     }
 }
