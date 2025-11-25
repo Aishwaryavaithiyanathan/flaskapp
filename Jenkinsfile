@@ -14,7 +14,7 @@ pipeline {
         stage('Checkout SCM') {
             steps {
                 checkout scm
-                branch: 'main', url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp'
+                git branch: 'main', url: 'https://github.com/Aishwaryavaithiyanathan/flaskapp'
             }
         }
 
